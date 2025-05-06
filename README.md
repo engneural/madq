@@ -22,28 +22,29 @@ data = MAdq(path)
 ## Returns
 
 * `data` (struct): A struct that contains the signal data and metadata:
-  - fs_units
-  - versionMAdq
-  - versionFirmware
-  - fs
-  - numberChannels
-  - numberChannelsTrigger
-  - numberChannelsADC
-  - chNames
-  - gain
-  - scales
-  - offset
-  - date
-  - comments
-  - marks
-  - marksNames
-  - signal
-  - trigger
-  - ADC
-  - numberSamples
-  - path
-  - signal_units
-  - ADC_units
+  
+  - `versionMAdq` (char):
+  - `versionFirmware` (char):
+  - `fs` (double):
+  - `numberChannels` (double):
+  - `numberChannelsTrigger` (double):
+  - `numberChannelsADC` (double):
+  - `chNames` (cell):
+  - `gain` (cell):
+  - `scales` (cell):
+  - `offset` (cell):
+  - `date` (struct):
+  - `comments` (char):
+  - `marks` (cell):
+  - `marksNames` (cell):
+  - `signal` (double): Contains the processed signal with gain, offset, and scaling applied (`numberChannels` x `numberSamples`).
+  - `trigger` (double): Contains the trigger signal (if enabled).
+  - `ADC` (double): Contains the ADC signal (if enabled) (`numberChannelsADC` x `numberSamples`).
+  - `numberSamples` (double):
+  - `path` (char):
+  - `signal_units` (string):
+  - `ADC_units` (string):
+  - `fs_units` (string):
 
 # :page_facing_up: References
 
