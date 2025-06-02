@@ -31,9 +31,7 @@ data = MAdq(path)
   - `numberChannelsADC` (double):
   - `chNames` (cell):
   - `gain` (cell):
-  - `scales` (cell):
-  - `offset` (cell):
-  - `date` (struct):
+  - `date` (datatime):
   - `comments` (char):
   - `marks` (cell):
   - `marksNames` (cell):
