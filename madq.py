@@ -1,0 +1,145 @@
+import struct
+import numpy as np
+from datetime import datetime
+import matplotlib.pyplot as plt
+import numpy as np
+
+def read_madq(filepath):
+    data = {}
+    with open(filepath, 'rb') as f:
+        # Version MAdq
+        n = struct.unpack('B', f.read(1))[0]
+        data['versionMAdq'] = f.read(n).decode()
+
+        # Version Firmware
+        n = struct.unpack('B', f.read(1))[0]
+        data['versionFirmware'] = f.read(n).decode()
+
+        # Sampling frequency
+        data['fs'] = struct.unpack('<H', f.read(2))[0]
+
+        # Channel counts
+        n_channels = struct.unpack('B', f.read(1))[0]
+        data['numberChannels'] = n_channels
+
+        n_trigger = struct.unpack('B', f.read(1))[0]
+        data['numberChannelsTrigger'] = n_trigger
+
+        n_adc = struct.unpack('B', f.read(1))[0]
+        data['numberChannelsADC'] = n_adc
+
+        pos_adc = struct.unpack('B', f.read(1))[0]
+        pos_trigger = struct.unpack('B', f.read(1))[0]
+
+        # Channel names
+        data['chNames'] = []
+        for _ in range(n_channels):
+            n = struct.unpack('B', f.read(1))[0]
+            data['chNames'].append(f.read(n).decode())
+
+        data['triggerChNames'] = []
+        for _ in range(n_trigger):
+            n = struct.unpack('B', f.read(1))[0]
+            data['triggerChNames'].append(f.read(n).decode())
+
+        # Gain, scale, offset
+        data['gain'] = [struct.unpack('<d', f.read(8))[0] for _ in range(n_channels)]
+        scales = [struct.unpack('<d', f.read(8))[0] for _ in range(n_channels)]
+        offsets = [struct.unpack('<d', f.read(8))[0] for _ in range(n_channels)]
+
+        # Date
+        year, = struct.unpack('<H', f.read(2))
+        month, day, hour, minute, second = struct.unpack('5B', f.read(5))
+        data['date'] = datetime(year, month, day, hour, minute, second)
+
+        # Comments
+        n = struct.unpack('B', f.read(1))[0]
+        data['comments'] = f.read(n).decode()
+
+        # Marks
+        n_marks = struct.unpack('<H', f.read(2))[0]
+  
+        data['marks'] = [struct.unpack('<I', f.read(4))[0] for _ in range(n_marks)]
+        data['marksNames'] = []
+        for _ in range(n_marks):
+            n = struct.unpack('B', f.read(1))[0]
+            data['marksNames'].append(f.read(n).decode())
+        
+        # Get header size
+        size_header = f.tell()
+        
+        # Read signal matrix
+        Bpa = 4  # bytes per int32
+        f.seek(0, 2)
+        size_file = (f.tell() - size_header) // Bpa
+        
+        f.seek(size_header)
+
+        n_status = n_channels + -(-n_channels // 8)  # ceil division
+        
+        n_frame = 1
+        total_rows = n_status + n_frame + n_adc
+        n_samples = size_file // (total_rows)
+        
+        raw_data = np.fromfile(f, dtype=np.int32, count=n_samples * total_rows)
+
+        raw_data_reshape = raw_data.reshape((total_rows, n_samples), order='F')
+
+        signal_raw = raw_data_reshape[:n_channels, :]
+        status_data = raw_data_reshape[n_channels:n_status, :] if n_trigger > 0 else np.zeros((1, n_samples), dtype=int)
+        
+        # Apply gain, scale, offset
+        offset_mat = np.tile(offsets, (n_samples, 1)).T
+        scale_mat = np.tile(scales, (n_samples, 1)).T
+        gain_mat = np.tile(data['gain'], (n_samples, 1)).T
+        
+        data['signal'] = ((signal_raw - offset_mat) * scale_mat) / gain_mat
+        
+        # Trigger
+        if n_trigger > 0:
+            data['trigger'] = np.zeros((n_trigger, n_samples), dtype=int)
+            for i in range(n_samples):
+                for j in range(n_trigger):
+                    data['trigger'][j, i] = (status_data[0, i] >> j) & 1
+        else:
+            data['trigger'] = []
+
+        # ADC
+        if n_adc > 0:
+            adc_data = raw_data[n_status + n_frame:, :] * (3.3 / 4095)
+            data['ADC'] = adc_data
+        else:
+            data['ADC'] = 0
+
+        # Metadata
+        data['numberSamples'] = n_samples
+        data['path'] = filepath
+        data['signal_units'] = 'Volts'
+        data['ADC_units'] = 'Volts'
+        data['fs_units'] = 'Hertz'
+
+    return data
+print("\n\n\n\n\n")
+file = r"D:\OneDrive\Mestrado\Tesis\testes\br\preliminar06-jun-2024-Madq\v0_danilo_molina\madq\eeg2.madq"
+ma_data = read_madq(file)
+
+print(ma_data.keys()) 
+
+fs = ma_data['fs']
+signal_raw = ma_data['signal']
+chNames = ma_data['chNames']
+
+print("Size signal:", signal_raw.shape)
+print("fs:", fs, ma_data['fs_units'])
+print("Channels:", chNames)
+
+plt.figure(figsize=(12, 6))
+plt.plot(signal_raw[1, 1:])
+
+plt.xlabel("Time (s)")
+plt.ylabel("Amplitude")
+plt.title("EEG signals")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
